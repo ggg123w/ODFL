@@ -4,8 +4,8 @@ import math
 import multiprocessing
 
 current_directory = os.path.dirname(os.path.abspath(__file__))
-compilersDir = os.path.join(current_directory, 'compilers')//需要新建
-collectDir = os.path.join(current_directory, 'cov')//需要新建
+compilersDir = os.path.join(current_directory, 'compilers')
+collectDir = os.path.join(current_directory, 'cov')
 testDir = os.path.join(current_directory, 'benchmark', 'gccbugs')
 gccbugsFile = os.path.join(current_directory, 'benchmark', 'gccbugs_summary.txt')
 resultdict = {}
@@ -20,7 +20,7 @@ timeout = 15
 processes = 10
 parallel = True
 
-def getBugInfo(gccbug)://将summary信息处理成输出的样子
+def getBugInfo(gccbug):
     items = gccbug.strip().split(',')
     bugId, rev, passOptLevel, failOptLevel, buggyFiles = items[0], items[1], items[2].replace('+', ' '), items[3].replace('+', ' '), items[4].split('+')
     return bugId, rev, passOptLevel, failOptLevel, buggyFiles
@@ -30,10 +30,10 @@ def getConfResult(bugId, rev, conf, timeout=timeout):
     cwd = os.path.join(testDir, bugId)
     gccPath = os.path.join(compilersDir, rev, 'build/bin/gcc')//compilers/rev(r1234)/build/bin/gcc
 
-    cplcmd = gccPath + ' -w ' + conf + ' fail.c'//构建GCC编译命令/home/user/ODFL/compilers/r196310/build/bin/gcc -w -O2 -c fail.c
-    cplcmd = 'timeout --signal=SIGKILL ' + str(timeout) + ' ' + cplcmd//加上timeout命令
+    cplcmd = gccPath + ' -w ' + conf + ' fail.c'
+    cplcmd = 'timeout --signal=SIGKILL ' + str(timeout) + ' ' + cplcmd
     try:
-        //加shell=True就是为了subprocess可以直接输入执行语句（以字符串形式），而不是列表形式
+       
         cplout = subprocess.run(cplcmd, shell=True, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout+1)
         if bugId in crash_bugId_lst:
             return str(cplout.returncode)
