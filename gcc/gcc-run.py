@@ -28,7 +28,7 @@ def getBugInfo(gccbug):
 
 def getConfResult(bugId, rev, conf, timeout=timeout):
     cwd = os.path.join(testDir, bugId)
-    gccPath = os.path.join(compilersDir, rev, 'build/bin/gcc')//compilers/rev(r1234)/build/bin/gcc
+    gccPath = os.path.join(compilersDir, rev, 'build/bin/gcc')
 
     cplcmd = gccPath + ' -w ' + conf + ' fail.c'
     cplcmd = 'timeout --signal=SIGKILL ' + str(timeout) + ' ' + cplcmd
