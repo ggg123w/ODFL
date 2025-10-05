@@ -282,7 +282,7 @@ def rank(failStmtInfoDir, passStmtInfoDir, formula = 'Ochiai'):
     # compute the buggy values of each file based on average aggregation
     scoredict = {key: sum(values) / len(values) for key, values in filescore.items()}
 
-    return scoredict
+    return scoredict, score
 
 
 def getRank(bugId, rev, passConfs, failConfs, collectDir):
@@ -310,9 +310,27 @@ def getRank(bugId, rev, passConfs, failConfs, collectDir):
         failStmtInfoDir.append(os.path.join(collectDir, bugId, testname, 'stmt_info.txt'))
 
     # rank file by score
-    scoredict = rank(failStmtInfoDir, passStmtInfoDir, formula = 'Ochiai')
-    with open(os.path.join(collectDir, bugId, 'Ochiai_scoredict.txt'), 'w') as f:
+    scoredict, stmt_score = rank(failStmtInfoDir, passStmtInfoDir, formula = 'Ochiai')
+
+    # write file-level score dict (unsorted)
+    with open(os.path.join(collectDir, bugId, 'Ochiai_scoredict.txt'), 'w', encoding='utf-8') as f:
         f.write(str(scoredict))
+
+    # write file-level sorted list
+    with open(os.path.join(collectDir, bugId, 'Ochiai_scoredict_sorted.txt'), 'w', encoding='utf-8') as f:
+        for k, v in sorted(scoredict.items(), key=lambda x: x[1], reverse=True):
+            f.write(f"{k}\t{v}\n")
+
+    # write statement-level raw scores
+    with open(os.path.join(collectDir, bugId, 'Ochiai_stmt_scores.txt'), 'w', encoding='utf-8') as f:
+        for k, v in stmt_score.items():
+            f.write(f"{k}\t{v}\n")
+
+    # write statement-level sorted scores
+    with open(os.path.join(collectDir, bugId, 'Ochiai_stmt_sorted.txt'), 'w', encoding='utf-8') as f:
+        for k, v in sorted(stmt_score.items(), key=lambda x: x[1], reverse=True):
+            f.write(f"{k}\t{v}\n")
+
     return scoredict
 
 
@@ -321,6 +339,17 @@ def task(gccbug):
 
     # generate configurations
     passConfs, failConfs = collect_option(rev, bugId, failOptLevel, passOptLevel)
+
+     # persist minimized configurations for inspection
+    out_dir = os.path.join(collectDir, bugId)
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, 'confs.txt'), 'w', encoding='utf-8') as f:
+        f.write('PASS CONFIGS:\n')
+        f.write('\n'.join(passConfs) + '\n\n')
+        f.write('FAIL CONFIGS:\n')
+        f.write('\n'.join(failConfs) + '\n')
+
 
     # SBFL rank
     scoredict = getRank(bugId, rev, passConfs, failConfs, collectDir)
