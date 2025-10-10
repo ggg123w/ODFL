@@ -319,17 +319,17 @@ def getRank(bugId, rev, passConfs, failConfs, collectDir):
     # write file-level sorted list
     with open(os.path.join(collectDir, bugId, 'Ochiai_scoredict_sorted.txt'), 'w', encoding='utf-8') as f:
         for k, v in sorted(scoredict.items(), key=lambda x: x[1], reverse=True):
-            f.write(f"{k}\t{v}\n")
+            f.write(str(k)+"\t"+str(v)+"\n")
 
     # write statement-level raw scores
     with open(os.path.join(collectDir, bugId, 'Ochiai_stmt_scores.txt'), 'w', encoding='utf-8') as f:
         for k, v in stmt_score.items():
-            f.write(f"{k}\t{v}\n")
+            f.write(str(k)+"\t"+str(v)+"\n")
 
     # write statement-level sorted scores
     with open(os.path.join(collectDir, bugId, 'Ochiai_stmt_sorted.txt'), 'w', encoding='utf-8') as f:
         for k, v in sorted(stmt_score.items(), key=lambda x: x[1], reverse=True):
-            f.write(f"{k}\t{v}\n")
+            f.write(str(k)+"\t"+str(v)+"\n")
 
     return scoredict
 
