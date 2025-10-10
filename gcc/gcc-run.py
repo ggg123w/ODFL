@@ -289,8 +289,8 @@ def getRank(bugId, rev, passConfs, failConfs, collectDir):
     # collect cov
     cwd = os.path.join(testDir, bugId)
     tempdir = os.path.join(collectDir, bugId)
-    if os.path.exists(tempdir):
-        subprocess.run('rm -rf ' + tempdir, shell=True, cwd=cwd)
+    # if os.path.exists(tempdir):
+    #     subprocess.run('rm -rf ' + tempdir, shell=True, cwd=cwd)
     subprocess.run('mkdir ' + tempdir, shell=True, cwd=cwd)
 
     passStmtInfoDir = []
@@ -339,18 +339,39 @@ def task(gccbug):
 
     # generate configurations
     passConfs, failConfs = collect_option(rev, bugId, failOptLevel, passOptLevel)
+    
+    # 添加调试信息 (Python 3.5兼容)
+    print("Debug - Bug {0}:".format(bugId))
+    print("  passConfs: {0}".format(passConfs))
+    print("  failConfs: {0}".format(failConfs))
+    print("  passConfs type: {0}, length: {1}".format(type(passConfs), len(passConfs)))
+    print("  failConfs type: {0}, length: {1}".format(type(failConfs), len(failConfs)))
 
-     # persist minimized configurations for inspection
+    # persist minimized configurations for inspection
     out_dir = os.path.join(collectDir, bugId)
+    print("  Output directory: {0}".format(out_dir))
+    print("  Directory exists: {0}".format(os.path.exists(out_dir)))
+    
     if not os.path.exists(out_dir):
         os.makedirs(out_dir, exist_ok=True)
-    with open(os.path.join(out_dir, 'confs.txt'), 'w', encoding='utf-8') as f:
-        f.write('PASS CONFIGS:\n')
-        f.write('\n'.join(passConfs) + '\n\n')
-        f.write('FAIL CONFIGS:\n')
-        f.write('\n'.join(failConfs) + '\n')
+        print("  Directory created: {0}".format(os.path.exists(out_dir)))
 
-
+    # 检查是否进入写入环节
+    conf_file_path = os.path.join(out_dir, 'confs.txt')
+    print("  Config file path: {0}".format(conf_file_path))
+    
+    try:
+        with open(conf_file_path, 'w', encoding='utf-8') as f:
+            f.write('PASS CONFIGS:\n')
+            f.write('\n'.join(passConfs) + '\n\n')
+            f.write('FAIL CONFIGS:\n')
+            f.write('\n'.join(failConfs) + '\n')
+        
+        print("  Config file written: {0}".format(os.path.exists(conf_file_path)))
+        print("  File size: {0} bytes".format(os.path.getsize(conf_file_path)))
+    except Exception as e:
+        print("  Error writing config file: {0}".format(e))
+    
     # SBFL rank
     scoredict = getRank(bugId, rev, passConfs, failConfs, collectDir)
         
