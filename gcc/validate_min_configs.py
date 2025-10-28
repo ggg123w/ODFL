@@ -114,6 +114,33 @@ def random_flip_conf(conf, rng, max_flips):
     return ' '.join(tokens2)
 
 
+def get_enabled_fopts(bug_id, rev, conf):
+    cwd = os.path.join(testDir, bug_id)
+    gcc_path = os.path.join(compilersDir, rev, 'build/bin/gcc')
+    # Query optimizer switches under the provided configuration
+    try:
+        out = subprocess.run(
+            [gcc_path, '-Q', '--help=optimizers'] + conf.split(),
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
+    except Exception as e:
+        return []
+
+    enabled = []
+    for line in (out.stdout or '').splitlines():
+        line = line.strip()
+        if not line.startswith('-'):
+            continue
+        parts = line.split()
+        if len(parts) == 2 and parts[1] == '[enabled]':
+            enabled.append(parts[0])
+    enabled.sort()
+    return enabled
+
+
 def main():
     parser = argparse.ArgumentParser(description='Validate minimality of FAIL CONFIGS by random flag flips.')
     parser.add_argument('--bug-id', required=True, help='Bug ID, e.g., 56478')
@@ -121,12 +148,15 @@ def main():
     parser.add_argument('--max-flips', type=int, default=3, help='Max flags flipped per trial')
     parser.add_argument('--timeout', type=int, default=15, help='Seconds for compile/run timeouts')
     parser.add_argument('--seed', type=int, default=0, help='Random seed for reproducibility')
+    parser.add_argument('--list-enabled', action='store_true', help='List actually enabled -f* options for FAIL CONFIGS')
+    parser.add_argument('--enabled-limit', type=int, default=0, help='If >0, only process this many FAIL CONFIGS when listing enabled')
+    parser.add_argument('--show-summary', action='store_true', help='Show enabled options summary for original vs minimized configs')
     args = parser.parse_args()
 
     rng = random.Random(args.seed)
 
     bug_id = args.bug_id
-    rev, pass_opt_level, _ = read_bug_info(bug_id)
+    rev, pass_opt_level, fail_opt_level = read_bug_info(bug_id)
     pass_result = get_conf_result(bug_id, rev, pass_opt_level, args.timeout)
 
     fail_configs = load_fail_configs(bug_id)
@@ -136,6 +166,69 @@ def main():
     out_dir = os.path.join(collectDir, bug_id)
     os.makedirs(out_dir, exist_ok=True)
     report_path = os.path.join(out_dir, 'validate_report.txt')
+
+    # Show summary of enabled options: original vs minimized
+    if args.show_summary:
+        summary_path = os.path.join(out_dir, 'options_summary.txt')
+        with open(summary_path, 'w', encoding='utf-8') as f:
+            f.write('=== ENABLED OPTIONS SUMMARY ===\n')
+            f.write('Bug ID: {}\n'.format(bug_id))
+            f.write('\n')
+            
+            # Original failOptLevel enabled options
+            original_enabled = get_enabled_fopts(bug_id, rev, fail_opt_level)
+            f.write('ORIGINAL FAIL CONFIG: {}\n'.format(fail_opt_level))
+            f.write('ENABLED COUNT: {}\n'.format(len(original_enabled)))
+            if original_enabled:
+                f.write('ENABLED OPTIONS:\n')
+                for opt in original_enabled:
+                    f.write('  {}\n'.format(opt))
+            f.write('\n')
+            
+            # Minimized FAIL CONFIGS enabled options (show first one as example)
+            if fail_configs:
+                minimized_enabled = get_enabled_fopts(bug_id, rev, fail_configs[0])
+                f.write('MINIMIZED FAIL CONFIG (example): {}\n'.format(fail_configs[0]))
+                f.write('ENABLED COUNT: {}\n'.format(len(minimized_enabled)))
+                if minimized_enabled:
+                    f.write('ENABLED OPTIONS:\n')
+                    for opt in minimized_enabled:
+                        f.write('  {}\n'.format(opt))
+                f.write('\n')
+                
+                # Show reduction
+                reduction = len(original_enabled) - len(minimized_enabled)
+                f.write('REDUCTION: {} options disabled ({} -> {})\n'.format(
+                    reduction, len(original_enabled), len(minimized_enabled)))
+                if reduction > 0:
+                    disabled_opts = set(original_enabled) - set(minimized_enabled)
+                    f.write('DISABLED OPTIONS:\n')
+                    for opt in sorted(disabled_opts):
+                        f.write('  {}\n'.format(opt))
+            f.write('\n')
+        
+        print('Wrote options summary to {}'.format(summary_path))
+
+    # Optional: list enabled fine-grained opts for FAIL CONFIGS
+    if args.list_enabled:
+        enabled_report = os.path.join(out_dir, 'enabled_options.txt')
+        limit = args.enabled_limit if args.enabled_limit and args.enabled_limit > 0 else len(fail_configs)
+        with open(enabled_report, 'w', encoding='utf-8') as f:
+            f.write('Bug {} enabled options report ({} configs)\n\n'.format(bug_id, limit))
+            count = 0
+            for conf in fail_configs:
+                if count >= limit:
+                    break
+                enabled = get_enabled_fopts(bug_id, rev, conf)
+                f.write('CONF: {}\n'.format(conf))
+                f.write('ENABLED COUNT: {}\n'.format(len(enabled)))
+                if enabled:
+                    f.write('ENABLED OPTIONS:\n')
+                    for opt in enabled:
+                        f.write('  {}\n'.format(opt))
+                f.write('\n')
+                count += 1
+        print('Wrote enabled options report to {}'.format(enabled_report))
 
     successes = []
     trials = []
